@@ -33,6 +33,8 @@ L = instaloader.Instaloader(
     # IP bloklanishini oldini olish uchun so'rovlar orasida tasodifiy pauza
     sleep=True,
     request_timeout=30,
+    # Sessiya fayllarini saqlash uchun yo'l
+    sessionfile_path="/data/sessions/{username}",
 )
 
 # Proksi sozlamalari
@@ -53,8 +55,12 @@ async def login_to_instagram():
     if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
         try:
             loop = asyncio.get_event_loop()
+            # Sessiya faylini /data papkasidan yuklash
+            session_file = f"/data/sessions/{INSTAGRAM_USERNAME}"
+            if not os.path.exists(session_file):
+                raise FileNotFoundError
             await loop.run_in_executor(
-                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME)
+                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
             )
             logger.info(f"{INSTAGRAM_USERNAME} uchun sessiya fayli topildi.")
         except FileNotFoundError:
@@ -64,8 +70,12 @@ async def login_to_instagram():
                 await loop.run_in_executor(
                     None, lambda: L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
                 )
+                # Sessiya faylini /data papkasiga saqlash
+                session_dir = "/data/sessions"
+                os.makedirs(session_dir, exist_ok=True)
+                session_file = f"{session_dir}/{INSTAGRAM_USERNAME}"
                 await loop.run_in_executor(
-                    None, lambda: L.save_session_to_file()
+                    None, lambda: L.save_session_to_file(session_file)
                 )
                 logger.info(f"{INSTAGRAM_USERNAME} sifatida muvaffaqiyatli login qilindi.")
             except Exception as e:
