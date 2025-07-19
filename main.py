@@ -7,7 +7,7 @@ import base64
 from dotenv import load_dotenv
 from moviepy.editor import VideoFileClip
 from shazamio import Shazam
-from telegram import Update, Bot
+from telegram import Update, Bot, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from urllib.parse import urlparse
 import instaloader
