@@ -2,13 +2,14 @@ import logging
 import os
 import re
 import asyncio
-from urllib.parse import urlparse
-
+import tempfile
+import base64
 from dotenv import load_dotenv
-from telegram import Update, BotCommand
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from moviepy.editor import VideoFileClip
 from shazamio import Shazam
+from telegram import Update, Bot
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from urllib.parse import urlparse
 import instaloader
 
 # .env faylidan muhit o'zgaruvchilarini yuklash
@@ -44,40 +45,53 @@ if PROXY:
     }
     logger.info(f"Proksi-server ishlatilmoqda: {PROXY}")
 
-# Instagram'ga kirish (ixtiyoriy, lekin tavsiya etiladi)
+# Atrof-muhit o'zgaruvchilari
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
-INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+INSTA_SESSION_BASE64 = os.getenv("INSTA_SESSION_BASE64")
 
 async def login_to_instagram():
-    """Instagramga login qilish uchun asinxron funksiya."""
-    if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-        try:
-            loop = asyncio.get_event_loop()
-            # Sessiya faylini /data papkasidan yuklash
-            session_file = f"/data/sessions/{INSTAGRAM_USERNAME}"
-            if not os.path.exists(session_file):
-                raise FileNotFoundError
+    """Base64 kodlangan sessiyadan foydalanib Instagramga kirish."""
+    loop = asyncio.get_event_loop()
+    
+    if not INSTAGRAM_USERNAME:
+        logger.warning("INSTAGRAM_USERNAME topilmadi. Sessiya yuklanmadi.")
+        return
+
+    session_dir = "/data/sessions"
+    session_file = os.path.join(session_dir, INSTAGRAM_USERNAME)
+    
+    try:
+        # Agar sessiya fayli allaqachon mavjud bo'lsa, uni yuklash
+        if os.path.exists(session_file):
+            logger.info(f"Mavjud sessiya fayli topildi: {session_file}")
             await loop.run_in_executor(
-                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME, filename=session_file)
+                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
             )
-            logger.info(f"{INSTAGRAM_USERNAME} uchun sessiya fayli topildi.")
-        except FileNotFoundError:
-            logger.info(f"{INSTAGRAM_USERNAME} uchun sessiya fayli topilmadi. Login qilinmoqda...")
-            try:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(
-                    None, lambda: L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                )
-                # Sessiya faylini /data papkasiga saqlash
-                session_dir = "/data/sessions"
-                os.makedirs(session_dir, exist_ok=True)
-                session_file = f"{session_dir}/{INSTAGRAM_USERNAME}"
-                await loop.run_in_executor(
-                    None, lambda: L.save_session_to_file(session_file)
-                )
-                logger.info(f"{INSTAGRAM_USERNAME} sifatida muvaffaqiyatli login qilindi.")
-            except Exception as e:
-                logger.error(f"Instagram'ga login qilishda xatolik: {e}")
+            logger.info(f"{INSTAGRAM_USERNAME} uchun sessiya muvaffaqiyatli yuklandi.")
+            return
+
+        # Agar sessiya fayli bo'lmasa, base64 o'zgaruvchisidan yaratish
+        if INSTA_SESSION_BASE64:
+            logger.info("INSTA_SESSION_BASE64 o'zgaruvchisi topildi. Sessiya fayli yaratilmoqda...")
+            os.makedirs(session_dir, exist_ok=True)
+            decoded_session = base64.b64decode(INSTA_SESSION_BASE64)
+            
+            with open(session_file, 'wb') as f:
+                f.write(decoded_session)
+            
+            logger.info(f"Sessiya fayli muvaffaqiyatli yaratildi: {session_file}")
+            await loop.run_in_executor(
+                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
+            )
+            logger.info(f"{INSTAGRAM_USERNAME} uchun sessiya base64'dan yuklandi.")
+        else:
+            logger.warning("INSTA_SESSION_BASE64 topilmadi. Faqat ochiq postlar yuklanadi.")
+
+    except Exception as e:
+        logger.error(f"Sessiyani yuklashda kutilmagan xatolik: {e}")
+        # Xatolik yuz berganda, faqat ochiq postlarni yuklashda davom etish
+        pass
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/start buyrug'i uchun javob qaytaradi."""
