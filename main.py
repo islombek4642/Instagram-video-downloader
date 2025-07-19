@@ -33,8 +33,6 @@ L = instaloader.Instaloader(
     # IP bloklanishini oldini olish uchun so'rovlar orasida tasodifiy pauza
     sleep=True,
     request_timeout=30,
-    # Sessiya fayllarini saqlash uchun yo'l
-    sessionfile_path="/data/sessions/{username}",
 )
 
 # Proksi sozlamalari
@@ -60,7 +58,7 @@ async def login_to_instagram():
             if not os.path.exists(session_file):
                 raise FileNotFoundError
             await loop.run_in_executor(
-                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME, session_file)
+                None, lambda: L.load_session_from_file(INSTAGRAM_USERNAME, filename=session_file)
             )
             logger.info(f"{INSTAGRAM_USERNAME} uchun sessiya fayli topildi.")
         except FileNotFoundError:
