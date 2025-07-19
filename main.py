@@ -82,14 +82,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message_text = update.message.text
     chat_id = update.message.chat_id
 
-    # Instagram havolasini tekshirish
-    url_match = re.search(r"(https?://www\.instagram\.com/([a-zA-Z0-9_\.]+)/([p,reel,tv]+)/([a-zA-Z0-9_\-]+))", message_text)
+    # Instagram havolasini tekshirish uchun universal regex
+    url_match = re.search(r"(https?://www\.instagram\.com/(?:p|reel|tv)/[a-zA-Z0-9_\-]+)", message_text)
     if not url_match:
         await update.message.reply_text("Iltimos, to'g'ri Instagram havolasini yuboring.")
         return
 
+    # Toza URLni olish (keraksiz parametrlarsiz)
     url = url_match.group(1)
-    shortcode = url.split('/')[-2]
+    # URLdan shortcode'ni ajratib olish
+    shortcode = url.split('/')[-1]
     
     processing_message = await update.message.reply_text("⏳ Havola tekshirilmoqda...")
 
