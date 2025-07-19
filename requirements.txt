@@ -1,5 +1,5 @@
 python-telegram-bot==21.0.1
-shazamio==0.6.0
+shazamio==0.5.1
 instaloader==4.11
 moviepy==1.0.3
 python-dotenv==1.0.1
